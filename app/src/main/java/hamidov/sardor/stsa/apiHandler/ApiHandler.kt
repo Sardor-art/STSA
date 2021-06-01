@@ -1,7 +1,6 @@
 package hamidov.sardor.stsa.apiHandler
 
-import hamidov.sardor.stsa.utils.FeaturedPhoto
-import hamidov.sardor.stsa.utils.Sections
+
 import retrofit2.Call
 import retrofit2.http.GET
 import retrofit2.http.Query
@@ -14,6 +13,6 @@ interface JsonPlaceHolderApi {
         @Query("include") include:String,
         @Query("limit") limit :Int
 
-        ): Call<Sections>
+        ): Call<String>
 
 }
