@@ -1,0 +1,2 @@
+rootProject.name = "STSA"
+include ':app'
