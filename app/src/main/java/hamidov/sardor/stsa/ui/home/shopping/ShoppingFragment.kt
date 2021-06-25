@@ -1,8 +1,6 @@
 package hamidov.sardor.stsa.ui.home.shopping
 
 import android.annotation.SuppressLint
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.os.AsyncTask
 import android.os.Bundle
 import android.util.Base64
@@ -16,9 +14,11 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import hamidov.sardor.stsa.R
 import hamidov.sardor.stsa.databinding.ShoppingFragmentBinding
-import hamidov.sardor.stsa.utils.Constants
 import hamidov.sardor.stsa.utils.JsoupHelper
 import hamidov.sardor.stsa.utils.models.Dori
+import hamidov.sardor.stsa.utils.realmObject.CategoryObject
+import hamidov.sardor.stsa.utils.realmObject.DoriObject
+import io.realm.Realm
 import org.jsoup.select.Elements
 import java.lang.reflect.Field
 import java.net.URL
@@ -30,6 +30,9 @@ class ShoppingFragment : Fragment() {
         fun newInstance() = ShoppingFragment()
     }
 
+    private val TAG = "ShoppingFragment"
+
+    private val realm:Realm = Realm.getDefaultInstance()
     private lateinit var viewModel: ShoppingViewModel
     private lateinit var binding: ShoppingFragmentBinding
     private lateinit var adapter: ShoppingAdapter
@@ -37,8 +40,8 @@ class ShoppingFragment : Fragment() {
     private var page: HashMap<String, String> = HashMap()
     private var dories: ArrayList<Dori> = ArrayList()
     private var pages: ArrayList<Int> = ArrayList()
-    private val TAG = "ShoppingFragment"
     private lateinit var baseUrl: String
+    private lateinit var spinner:Spinner
     private lateinit var spinnerAdapter: ArrayAdapter<Int>
 
     @SuppressLint("UseRequireInsteadOfGet")
@@ -49,31 +52,43 @@ class ShoppingFragment : Fragment() {
 
         binding = ShoppingFragmentBinding.inflate(inflater, container, false)
         Log.d(TAG, "onCreateView: ")
-        setup()
         baseUrl = (arguments!!["baseUrl"] as String)
         Log.d(TAG, "base $baseUrl")
         jsoupHelper = JsoupHelper()
-        Content().execute()
-        spinnerAdapter = ArrayAdapter(
-            context!!,
-            android.R.layout.simple_spinner_dropdown_item,
-            pages
-        )
+
+        if(realm.where(DoriObject::class.java).findAll().isNullOrEmpty()) {
+            Log.d(TAG, "onCreateView: isNullOrEmpty:")
+            Content().execute()
+        }else{
+            val result = realm.where(DoriObject::class.java).equalTo("page",1 as Int).findAll()
+            result.forEach {
+                dories.add(Dori(it.off,it.image!!,it.name,it.value,it.price))
+            }
+            Log.d(TAG, "onCreateView: \ndories: $dories")
+            page["pagenum"]=realm.where(CategoryObject::class.java).equalTo("link",arguments!!["baseUrl"] as String).findFirst()!!.page.toString()
+            initList()
+            Log.d(TAG, "writeToRealm: ")
+        }
+
+        spinnerAdapter = ArrayAdapter(context!!,android.R.layout.simple_spinner_dropdown_item,pages)
+        setup()
         return binding.root
     }
 
     private fun initList(): ArrayList<Int> {
+
         for (i in 0 until page["pagenum"]!!.toInt()) {
             pages.add(i + 1)
         }
-
+        Log.d(TAG, "initList: \nlist: ${pages}")
         return pages
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        Log.d(TAG, "onCreateOptionsMenu: ")
         inflater.inflate(R.menu.page_spinner, menu)
         val item = menu.findItem(R.id.spinner)
-        val spinner = MenuItemCompat.getActionView(item) as Spinner
+       spinner = MenuItemCompat.getActionView(item) as Spinner
         spinner.dropDownWidth = 120
         spinner.dropDownVerticalOffset = 100
         try {
@@ -99,34 +114,36 @@ class ShoppingFragment : Fragment() {
                 id: Long
             ) {
                 if (position != 0) {
-                    Toast.makeText(
-                        context,
-                        "${
-                            page["value"]!!.substring(
-                                0,
-                                page["value"]!!.length - 1
-                            )
-                        }${position + 1}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    baseUrl =
-                        "https://pharmaclick.uz/${
-                            page["value"]!!.substring(
-                                0,
-                                page["value"]!!.length - 1
-                            )
-                        }${position + 1}"
-                    Content().execute()
+                    Toast.makeText(context,"${page["value"]!!.substring(0,page["value"]!!.length - 1)}${position + 1}",Toast.LENGTH_SHORT).show()
+                    if(realm.where(DoriObject::class.java).equalTo("page",position+1).findAll().isEmpty()) {
+                        baseUrl ="https://pharmaclick.uz/${page["value"]!!.substring(0,page["value"]!!.length - 1)}${position + 1}"
+                        Content().execute()
+                    }else{
+                        dories.clear()
+                        realm.where(DoriObject::class.java).equalTo("page",position+1).findAll().forEach {
+                            dories.add(Dori(it.off,it.image!!,it.name,it.value,it.price))
+                            adapter.notifyDataSetChanged()
+                        }
+                    }
                     Log.d(TAG, "onItemSelected: ${page.values}")
                 } else {
                     if (!baseUrl.equals(arguments?.get("baseUrl") as String)) {
-                        baseUrl = arguments?.get("baseUrl") as String
-                        Content().execute()
+                        if(realm.where(DoriObject::class.java).equalTo("page",position+1).findAll().isEmpty()) {
+                            baseUrl = arguments?.get("baseUrl") as String
+                            Content().execute()
+                            Log.d(TAG, "onItemSelected: page 1")
+                        }else{
+                            realm.where(DoriObject::class.java).equalTo("page",position+1).findAll().forEach {
+                                dories.add(Dori(it.off,it.image!!,it.name,it.value,it.price))
+                                adapter.notifyDataSetChanged()
+                        }
                     }
                 }
             } // to close the onItemSelected
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+                }
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                Log.d(TAG, "onNothingSelected: ")
+            }
         }
     }
 
@@ -138,6 +155,7 @@ class ShoppingFragment : Fragment() {
             Toast.makeText(context, "$image", Toast.LENGTH_SHORT).show()
         })
         binding.rvShopping.adapter = adapter
+        Log.d(TAG, "setup: ")
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
@@ -145,13 +163,14 @@ class ShoppingFragment : Fragment() {
         setHasOptionsMenu(true);
         super.onActivityCreated(savedInstanceState);
         viewModel = ViewModelProvider(this).get(ShoppingViewModel::class.java)
-
+        Log.d(TAG, "onActivityCreated: ")
     }
 
 
     private fun getDori(baseUrl: String) {
         val elements: Elements =
             jsoupHelper.getElements(baseUrl, "div.catalog_block.items.block_list")
+        Log.d(TAG, "getDori: ")
         if (page.values.isEmpty()) {
             Log.d(TAG, "value: ${page.values}")
             val pageElements = jsoupHelper.getElements(baseUrl, "div.nums").select("a.dark_link")
@@ -170,31 +189,18 @@ class ShoppingFragment : Fragment() {
         try {
             dories.clear()
             for (i in 0 until imageUrl.size) {
-                val bitmap: Bitmap = if (imageUrl[i].attr("src").contains("base64")) {
-                    val encodeImage = imageUrl[i].attr("src")
-                        .substring(imageUrl[i].attr("src").indexOf(",") + 1)
-                    val byteArray: ByteArray = Base64.decode(encodeImage, Base64.DEFAULT)
-                    BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+                val byteArray =
+                    if (imageUrl[i].attr("src").contains("base64")) {
+                        Log.d(TAG, "getDori: base64")
+                    val encodeImage = imageUrl[i].attr("src").substring(imageUrl[i].attr("src").indexOf(",") + 1)
+                    Base64.decode(encodeImage, Base64.DEFAULT)
                 } else {
-                    BitmapFactory.decodeStream(
-                        URL(
-                            "https://pharmaclick.uz/${
-                                imageUrl[i].attr("src")
-                            }"
-                        ).openStream()
-                    )
+                        Log.d(TAG, "getDori: not Base64")
+                        URL("https://pharmaclick.uz/${imageUrl[i].attr("src")}").openStream().readBytes()
                 }
 
-                dories.add(
-                    Dori(
-                        off[i].text(),
-                        bitmap,
-                        name[i].text(),
-                        value[i].text(),
-                        price[i].text(),
 
-                        )
-                )
+                dories.add(Dori(off[i].text(),byteArray,name[i].text(),value[i].text(),price[i].text()))
 
                 Log.d(TAG, "\n\n\n\n------------------------------------")
                 Log.d(TAG, "off : \n ${off[i].text()}")
@@ -209,12 +215,41 @@ class ShoppingFragment : Fragment() {
             e.printStackTrace()
 
         }
-//        dories.add(Dori(
-//
-//        ))
+
     }
 
+    private fun writeToRealm( selectedItemPosition: Int) {
 
+
+        Log.d(TAG, "writeToRealm:\n pharmy for write :$dories")
+        if (!realm.isInTransaction)
+            realm.beginTransaction()
+        Log.d(TAG, "writeToRealm: page \n$selectedItemPosition")
+        if (realm.where(CategoryObject::class.java).equalTo("link",arguments!!["baseUrl"] as String).findFirst()!!.page ==0 ) {
+            realm.where(CategoryObject::class.java)
+                .equalTo("link", arguments!!["baseUrl"] as String).findFirst()!!.page =
+                page["pagenum"]!!.toInt()
+            Log.d(TAG, "writeToRealm: page")
+        }
+
+
+
+        this.dories.forEach {
+            Log.d(TAG, "writeToRealm: for \n$it")
+            if (selectedItemPosition==-1)
+                realm.copyToRealm(DoriObject(selectedItemPosition+2,it.off,it.image,it.name,it.value,it.price))
+            else
+                realm.copyToRealm(DoriObject(selectedItemPosition+1,it.off,it.image,it.name,it.value,it.price))
+
+        }
+
+        realm.commitTransaction()
+
+       /* if (!realm.isClosed) {
+            realm.close()
+            Log.d(TAG, "writeToRealm:close ")
+        }*/
+    }
     @SuppressLint("StaticFieldLeak")
     inner class Content : AsyncTask<Void, Void, Void>() {
 
@@ -240,17 +275,17 @@ class ShoppingFragment : Fragment() {
         override fun onPostExecute(result: Void?) {
             super.onPostExecute(result)
             binding.rvShopping.alpha = 1f
-            binding.pbShopping.visibility = View.GONE
             binding.pbShopping.startAnimation(
                 AnimationUtils.loadAnimation(
                     context,
                     android.R.anim.fade_out
                 )
             )
-            if (dories.isNotEmpty()) {
-                Constants.DATA_DORI = dories
-            }
-
+            binding.pbShopping.visibility = View.GONE
+//            if (dories.isNotEmpty()) {
+//                Constants.DATA_DORI = dories
+//            }
+            writeToRealm(spinner.selectedItemPosition)
             spinnerAdapter.notifyDataSetChanged()
             adapter.notifyDataSetChanged()
             Log.d(TAG, "onPostExecute: ")

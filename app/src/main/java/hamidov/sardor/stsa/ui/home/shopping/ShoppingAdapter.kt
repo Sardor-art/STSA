@@ -1,6 +1,7 @@
 package hamidov.sardor.stsa.ui.home.shopping
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
@@ -12,6 +13,7 @@ import hamidov.sardor.stsa.R
 import hamidov.sardor.stsa.utils.models.Category
 import hamidov.sardor.stsa.utils.models.Dori
 import org.w3c.dom.Text
+import java.io.ByteArrayInputStream
 
 class ShoppingAdapter(
     val context: Context, var list: ArrayList<Dori>,
@@ -38,7 +40,7 @@ class ShoppingAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val dori = list[position]
         holder.off.text = dori.off
-        holder.imageView.setImageBitmap(dori.image)
+        holder.imageView.setImageBitmap(BitmapFactory.decodeStream(ByteArrayInputStream(dori.image)))
         holder.nameDori.text = dori.name
         holder.priceDori.text = dori.price
         if(dori.off.equals("Специальная цена"))

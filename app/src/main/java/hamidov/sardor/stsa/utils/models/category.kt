@@ -6,13 +6,13 @@ import java.net.URL
 
 data class Category(
     val name: String,
-    val image: Bitmap,
+    val image: ByteArray,
     val link: String
 )
 
 data class Dori(
     val off: String,
-    val image: Bitmap,
+    val image: ByteArray,
     val name: String,
 //    val rate: Int,
     val value: String,

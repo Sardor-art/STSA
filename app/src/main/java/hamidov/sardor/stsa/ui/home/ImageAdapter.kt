@@ -1,6 +1,7 @@
 package hamidov.sardor.stsa.ui.home
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import hamidov.sardor.stsa.R
 import hamidov.sardor.stsa.utils.models.Category
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 class ImageAdapter(
@@ -31,7 +33,7 @@ class ImageAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val image = list[position]
-        holder.imageView.setImageBitmap(image.image)
+        holder.imageView.setImageBitmap(BitmapFactory.decodeStream(ByteArrayInputStream(image.image)))
         holder.imageView.setOnClickListener { (imageClickListener.clickLister(image)) }
     }
 
